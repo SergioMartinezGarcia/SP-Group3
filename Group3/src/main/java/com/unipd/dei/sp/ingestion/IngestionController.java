@@ -1,6 +1,8 @@
 package com.unipd.dei.sp.ingestion;
 
 import com.unipd.dei.sp.model.Document;
+import com.unipd.dei.sp.repository.DocumentRepository;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 
@@ -11,6 +13,12 @@ import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
 
+/**
+ * @class IngestionController
+ * @brief Exposes endpoints to trigger crawling, filtering, and forwarding of documents.
+ *
+ * This controller retrieves raw data using {@link CrawlerService}, applies relevance filtering, and sends the data to(Change later).
+ */
 @RestController
 
 public class IngestionController {
@@ -20,8 +28,10 @@ public class IngestionController {
 
     @Autowired
     private RelevanceFilterService filterService;
+   
+    @Autowired
+    private DocumentRepository documentRepository;
 
-    @Value("${core.service.url}")
     private String coreUrl;
 
     private final RestTemplate restTemplate = new RestTemplate();
@@ -32,7 +42,18 @@ public class IngestionController {
         runPipeline(topic);
         return "Crawling started for topic: " + topic;
     }
-
+    /**
+     * @brief Executes the ingestion pipeline: crawl → filter → forward.
+     *
+     * Steps performed:
+     * 1. Calls {@link CrawlerService#crawl(String)} to gather articles.
+     * 2. Applies {@link RelevanceFilterService#isRelevant(Document, String)}.
+     * 3. Sends relevant {@link Document} objects to the MongoDB repository.
+     *
+     * Errors during forwarding are logged but do not halt the pipeline.
+     *
+     * @param topic The topic used for crawling and filtering documents.
+     */
     private void runPipeline(String topic) {
         System.out.println("--- Starting Pipeline for: " + topic + " ---");
 
@@ -47,11 +68,11 @@ public class IngestionController {
                 boolean isRelevant = filterService.isRelevant(doc, topic);
 
                 if (isRelevant) {
-                    restTemplate.postForObject(coreUrl, doc, Void.class);
-                    System.out.println("Sent doc: " + doc.id());
+                    documentRepository.save(doc);
+                    System.out.println("Sent doc: " + documentRepository.findById(doc.id()).get().id());
                 }
             } catch (Exception e) {
-                System.err.println("Could not send to Core Service: " + e.getMessage());
+                System.err.println("Could not store in database: " + e.getMessage());
             }
         }
     }

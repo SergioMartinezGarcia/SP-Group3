@@ -2,8 +2,10 @@ package com.unipd.dei.sp.Group3;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.data.mongodb.repository.config.EnableMongoRepositories;
 
 @SpringBootApplication(scanBasePackages = "com.unipd.dei.sp")
+@EnableMongoRepositories(basePackages = "com.unipd.dei.sp.repository")
 public class Group3Application {
 
 	public static void main(String[] args) {
