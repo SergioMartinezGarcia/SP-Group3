@@ -72,8 +72,15 @@ public class GuardianCrawler implements CrawlerService {
 					if (bodyText == null || bodyText.isEmpty())
 						continue;
 
-					Document doc = new Document(node.path("id").asText(), node.path("webUrl").asText(), bodyText,
-							"The Guardian", Instant.now(), Map.of("section", node.path("sectionName").asText()));
+					Document doc = new Document(
+							node.path("id").asText(), 
+							node.path("webUrl").asText(), 
+							bodyText,
+							"The Guardian", 
+							String.valueOf(Instant.now().toEpochMilli()),
+							Map.of("section", node.path("sectionName").asText(),
+							       "webTitle", node.path("webTitle").asText())
+					);
 					documents.add(doc);
 				}
 			}
