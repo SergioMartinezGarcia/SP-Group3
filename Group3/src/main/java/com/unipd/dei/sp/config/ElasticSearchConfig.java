@@ -6,8 +6,9 @@ import org.springframework.data.elasticsearch.client.ClientConfiguration;
 import org.springframework.data.elasticsearch.client.elc.ElasticsearchConfiguration;
 import org.springframework.data.elasticsearch.repository.config.EnableElasticsearchRepositories;
 
-/**
- * Elasticsearch configuration
+/*
+ * Configuration for Elasticsearch connection.
+ * Sets up the client to connect to the Elasticsearch instance.
  */
 @Configuration
 public class ElasticSearchConfig extends ElasticsearchConfiguration {
@@ -18,6 +19,7 @@ public class ElasticSearchConfig extends ElasticsearchConfiguration {
     @Value("${elasticsearch.port:9200}")
     private int elasticsearchPort;
 
+    // Configures the Elasticsearch client with host and port settings
     @Override
     public ClientConfiguration clientConfiguration() {
         return ClientConfiguration.builder()

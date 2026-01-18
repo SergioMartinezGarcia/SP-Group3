@@ -62,28 +62,8 @@
             box-shadow: 0 10px 30px rgba(0,0,0,0.2);
         }
 
-        .search-box {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-
-        .search-input {
-            flex: 1;
-            padding: 15px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 1rem;
-            transition: border-color 0.3s;
-        }
-
-        .search-input:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-
         .btn {
-            padding: 15px 30px;
+            padding: 12px 24px;
             border: none;
             border-radius: 8px;
             font-size: 1rem;
@@ -137,29 +117,67 @@
             padding: 12px;
             margin-bottom: 8px;
             border-radius: 6px;
+            background: #f8f9fa;
+            border: 2px solid #e0e0e0;
             cursor: pointer;
-            transition: all 0.3s;
-            border: 2px solid transparent;
+            transition: all 0.2s;
         }
 
         .topic-item:hover {
-            background: #f5f5f5;
+            background: #e8e9ea;
+            border-color: #667eea;
         }
 
         .topic-item.active {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
             border-color: #667eea;
+        }
+
+        .topic-item.active .topic-id,
+        .topic-item.active .topic-words {
+            color: white;
         }
 
         .topic-id {
             font-weight: 600;
             margin-bottom: 5px;
+            color: #667eea;
         }
 
         .topic-words {
             font-size: 0.85rem;
-            opacity: 0.8;
+            color: #666;
+        }
+
+        .filter-info {
+            background: #e8f4fd;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .filter-info-text {
+            color: #333;
+            font-size: 0.95rem;
+        }
+
+        .clear-filter-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+
+        .clear-filter-btn:hover {
+            background: #5568d3;
         }
 
         .admin-section {
@@ -180,8 +198,52 @@
             gap: 8px;
         }
 
+        .ingestion-section {
+            margin-top: 15px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .ingestion-section h4 {
+            margin-bottom: 10px;
+            color: #333;
+            font-size: 0.95rem;
+        }
+
+        .form-group {
+            margin-bottom: 10px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 0.85rem;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 8px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 0.9rem;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .help-text {
+            font-size: 0.75rem;
+            color: #999;
+            margin-top: 5px;
+            font-style: italic;
+        }
+
         .results-container {
-            margin-top: 30px;
+            margin-top: 20px;
         }
 
         .results-header {
@@ -189,6 +251,8 @@
             justify-content: space-between;
             align-items: center;
             margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e0e0e0;
         }
 
         .results-count {
@@ -196,10 +260,8 @@
             color: #666;
         }
 
-        .clear-filter {
+        .results-count strong {
             color: #667eea;
-            cursor: pointer;
-            text-decoration: underline;
         }
 
         .document-card {
@@ -245,6 +307,9 @@
             display: flex;
             flex-wrap: wrap;
             gap: 10px;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #e0e0e0;
         }
 
         .topic-badge {
@@ -289,28 +354,25 @@
             margin-bottom: 20px;
         }
 
-        .ingestion-form {
-            display: flex;
-            gap: 10px;
-            margin-top: 10px;
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
         }
 
-        .ingestion-input {
-            flex: 1;
-            padding: 10px;
-            border: 2px solid #e0e0e0;
-            border-radius: 6px;
-            font-size: 0.9rem;
+        .empty-state-icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
         }
 
-        .filter-badge {
-            display: inline-block;
-            background: #667eea;
-            color: white;
-            padding: 4px 8px;
-            border-radius: 12px;
-            font-size: 0.85rem;
-            margin-left: 8px;
+        .empty-state-title {
+            font-size: 1.3rem;
+            margin-bottom: 10px;
+            color: #666;
+        }
+
+        .empty-state-text {
+            font-size: 1rem;
         }
 
         @media (max-width: 768px) {
@@ -321,27 +383,22 @@
             h1 {
                 font-size: 1.8rem;
             }
-
-            .search-box {
-                flex-direction: column;
-            }
         }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>📚 Document Search & Topic Explorer</h1>
+            <h1>Document Search & Topic Explorer</h1>
             <p class="subtitle">Powered by Elasticsearch & Mallet Topic Modeling</p>
         </header>
 
         <div class="main-content">
-            <!-- Sidebar -->
             <aside class="sidebar">
                 <div class="topics-list">
-                    <h3>📊 Topics</h3>
+                    <h3>Available Topics</h3>
                     <p style="font-size: 0.85rem; color: #666; margin-bottom: 10px;">
-                        Click to filter searches and crawling
+                        Click a topic to filter documents
                     </p>
                     <div id="topicsList">
                         <div class="loading">Loading topics...</div>
@@ -349,62 +406,52 @@
                 </div>
 
                 <div class="admin-section">
-                    <h3>⚙️ Admin Actions</h3>
+                    <h3>Admin Actions</h3>
                     <div class="admin-button-group">
-                        <button class="btn btn-secondary btn-sm" onclick="reindexDocuments()">
-                            🔄 Reindex & Train
-                        </button>
-                        
                         <button class="btn btn-danger btn-sm" onclick="deleteAllData()">
-                            🗑️ Delete All Data
-                        </button>
-                        
-                        <button class="btn btn-danger btn-sm" onclick="deleteDocuments()">
-                            📄 Delete Documents
-                        </button>
-                        
-                        <button class="btn btn-danger btn-sm" onclick="deleteTopics()">
-                            📊 Delete Topics
+                            Delete All Data
                         </button>
                     </div>
                     
-                    <h3 style="margin-top: 15px;">
-                        📥 Ingest Documents
-                        <span id="crawlFilterBadge"></span>
-                    </h3>
-                    <div class="ingestion-form">
-                        <input type="text" id="topicInput" class="ingestion-input" placeholder="Topic (e.g., science)" value="science">
-                        <button class="btn btn-secondary btn-sm" onclick="ingestDocuments()">
-                            📥 Crawl
+                    <div class="ingestion-section">
+                        <h4>Crawl & Filter Documents</h4>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Search keyword</label>
+                            <input type="text" id="crawlKeywordInput" class="form-input" placeholder="e.g., science, technology" value="science">
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Filter by topics (optional)</label>
+                            <input type="text" id="crawlTopicFilterInput" class="form-input" placeholder="e.g., 1,3,5">
+                            <p class="help-text">Leave empty to store all crawled documents. Enter topic IDs (comma-separated) to filter.</p>
+                        </div>
+
+                        <button class="btn btn-secondary btn-sm" style="width: 100%; margin-top: 5px;" onclick="crawlAndIndex()">
+                            Crawl & Train Topics
                         </button>
+                        <p class="help-text">Crawls documents, trains topic model, and applies topic filter if specified</p>
                     </div>
-                    <p style="font-size: 0.75rem; color: #999; margin-top: 5px;">
-                        Crawled docs will be filtered by selected topic (if any)
-                    </p>
                 </div>
             </aside>
 
-            <!-- Main Search Section -->
             <main class="search-section">
                 <div id="messageContainer"></div>
-
-                <div class="search-box">
+                
+                <div style="margin-bottom: 20px;">
                     <input 
                         type="text" 
                         id="searchInput" 
-                        class="search-input" 
-                        placeholder="Search documents (e.g., climate change, technology, politics)..."
-                        onkeypress="handleKeyPress(event)"
+                        class="form-input" 
+                        placeholder="Search documents by title..."
+                        style="font-size: 1rem; padding: 12px;"
                     >
-                    <button class="btn btn-primary" onclick="searchDocuments()">
-                        🔍 Search
-                    </button>
                 </div>
 
+                <div id="filterInfo"></div>
+
                 <div class="results-container" id="resultsContainer">
-                    <div style="text-align: center; padding: 60px; color: #999;">
-                        <p style="font-size: 1.2rem;">Enter a search query to find documents</p>
-                    </div>
+                    <div class="loading">Loading documents...</div>
                 </div>
             </main>
         </div>
@@ -412,22 +459,22 @@
 
     <script>
         const API_BASE = 'http://localhost:8081/api';
-        let currentTopicFilter = null;
-        let currentQuery = '';
+        let allDocuments = [];
+        let selectedTopicId = null;
+        let searchQuery = '';
 
-        // Load topics on page load
         document.addEventListener('DOMContentLoaded', () => {
             loadTopics();
+            loadAllDocuments();
+            
+            const searchInput = document.getElementById('searchInput');
+            searchInput.addEventListener('input', (e) => {
+                searchQuery = e.target.value.toLowerCase().trim();
+                displayResults();
+                updateFilterInfo();
+            });
         });
 
-        // Handle Enter key in search
-        function handleKeyPress(event) {
-            if (event.key === 'Enter') {
-                searchDocuments();
-            }
-        }
-
-        // Load all topics
         async function loadTopics() {
             try {
                 const response = await fetch(`${API_BASE}/gateway/topics`);
@@ -436,170 +483,238 @@
                 const topicsContainer = document.getElementById('topicsList');
                 
                 if (topics.length === 0) {
-                    topicsContainer.innerHTML = '<p style="color: #999;">No topics available. Run reindex first.</p>';
+                    topicsContainer.innerHTML = '<p style="color: #999; font-size: 0.85rem;">No topics yet. Crawl documents to train the topic model.</p>';
                     return;
                 }
 
                 topicsContainer.innerHTML = topics.map(topic => `
-                    <div class="topic-item" onclick="filterByTopic(${topic.id})">
+                    <div class="topic-item ${selectedTopicId === topic.id ? 'active' : ''}" onclick="filterByTopic(${topic.id})">
                         <div class="topic-id">Topic ${topic.id}</div>
                         <div class="topic-words">${topic.topWords.slice(0, 5).join(', ')}</div>
                     </div>
                 `).join('');
             } catch (error) {
                 console.error('Error loading topics:', error);
-                document.getElementById('topicsList').innerHTML = '<p style="color: #c00;">Failed to load topics</p>';
+                document.getElementById('topicsList').innerHTML = '<p style="color: #c00; font-size: 0.85rem;">Failed to load topics</p>';
             }
         }
 
-        // Filter by topic (affects both search and crawling)
         function filterByTopic(topicId) {
-            if (currentTopicFilter === topicId) {
-                currentTopicFilter = null;
-                document.querySelectorAll('.topic-item').forEach(item => item.classList.remove('active'));
-                updateFilterBadge();
+            if (selectedTopicId === topicId) {
+                selectedTopicId = null;
             } else {
-                currentTopicFilter = topicId;
-                document.querySelectorAll('.topic-item').forEach(item => item.classList.remove('active'));
-                event.target.closest('.topic-item').classList.add('active');
-                updateFilterBadge();
+                selectedTopicId = topicId;
             }
             
-            if (currentQuery) {
-                searchDocuments();
+            loadTopics();
+            displayResults();
+            updateFilterInfo();
+        }
+
+        function clearFilter() {
+            selectedTopicId = null;
+            searchQuery = '';
+            document.getElementById('searchInput').value = '';
+            loadTopics();
+            displayResults();
+            updateFilterInfo();
+        }
+
+        function updateFilterInfo() {
+            const filterInfoContainer = document.getElementById('filterInfo');
+            const filteredCount = getFilteredDocuments().length;
+            const hasFilters = selectedTopicId !== null || searchQuery !== '';
+            
+            if (hasFilters) {
+                let filterText = '';
+                if (selectedTopicId !== null && searchQuery !== '') {
+                    filterText = `Filtering by <strong>Topic ${selectedTopicId}</strong> and search query "<strong>${searchQuery}</strong>"`;
+                } else if (selectedTopicId !== null) {
+                    filterText = `Filtering by <strong>Topic ${selectedTopicId}</strong>`;
+                } else if (searchQuery !== '') {
+                    filterText = `Searching for "<strong>${searchQuery}</strong>"`;
+                }
+                
+                filterInfoContainer.innerHTML = `
+                    <div class="filter-info">
+                        <div class="filter-info-text">
+                            ${filterText} (${filteredCount} documents)
+                        </div>
+                        <button class="clear-filter-btn" onclick="clearFilter()">Clear All Filters</button>
+                    </div>
+                `;
+            } else {
+                filterInfoContainer.innerHTML = '';
             }
         }
 
-        // Update filter badge
-        function updateFilterBadge() {
-            const badge = document.getElementById('crawlFilterBadge');
-            if (currentTopicFilter !== null) {
-                badge.innerHTML = `<span class="filter-badge">Topic ${currentTopicFilter}</span>`;
-            } else {
-                badge.innerHTML = '';
+        function getFilteredDocuments() {
+            let filtered = allDocuments;
+            
+            // Apply topic filter
+            if (selectedTopicId !== null) {
+                filtered = filtered.filter(doc => {
+                    return doc.topics && doc.topics[selectedTopicId];
+                });
             }
+            
+            // Apply search query filter
+            if (searchQuery !== '') {
+                filtered = filtered.filter(doc => {
+                    const title = (doc.title || doc.metadata?.webTitle || doc.id).toLowerCase();
+                    return title.includes(searchQuery);
+                });
+            }
+            
+            return filtered;
         }
 
-        // Search documents
-        async function searchDocuments() {
-            const query = document.getElementById('searchInput').value.trim();
-            
-            if (!query) {
-                showMessage('Please enter a search query', 'error');
-                return;
-            }
-
-            currentQuery = query;
+        async function loadAllDocuments() {
             const resultsContainer = document.getElementById('resultsContainer');
-            resultsContainer.innerHTML = '<div class="loading">Searching...</div>';
+            resultsContainer.innerHTML = '<div class="loading">Loading documents...</div>';
 
             try {
-                let url = `${API_BASE}/gateway/search?query=${encodeURIComponent(query)}`;
-                if (currentTopicFilter !== null) {
-                    url += `&topicFilter=${currentTopicFilter}`;
-                }
-
-                const response = await fetch(url);
+                const response = await fetch(`${API_BASE}/gateway/search?query=*`);
                 const data = await response.json();
                 
-                displayResults(data);
+                allDocuments = data.hits || [];
+                
+                displayResults();
+                updateFilterInfo();
             } catch (error) {
-                console.error('Error searching:', error);
-                resultsContainer.innerHTML = '<div class="error">Failed to search documents. Make sure the server is running.</div>';
+                console.error('Error loading documents:', error);
+                resultsContainer.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">Warning</div>
+                        <div class="empty-state-title">Could not load documents</div>
+                        <div class="empty-state-text">Make sure the server is running and documents are indexed.</div>
+                    </div>
+                `;
             }
         }
 
-        // Display search results
-        function displayResults(data) {
+        function displayResults() {
             const resultsContainer = document.getElementById('resultsContainer');
+            const documentsToShow = getFilteredDocuments();
             
-            if (data.hits.length === 0) {
+            if (allDocuments.length === 0) {
                 resultsContainer.innerHTML = `
-                    <div style="text-align: center; padding: 40px; color: #999;">
-                        <p style="font-size: 1.2rem;">No results found for "${data.query}"</p>
-                        <p>Try a different search term or remove topic filters</p>
+                    <div class="empty-state">
+                        <div class="empty-state-icon">Search</div>
+                        <div class="empty-state-title">No documents yet</div>
+                        <div class="empty-state-text">Start by crawling some documents.</div>
                     </div>
                 `;
                 return;
             }
 
-            const filterInfo = currentTopicFilter !== null 
-                ? `<span class="clear-filter" onclick="clearTopicFilter()">Clear topic filter</span>`
-                : '';
+            if (documentsToShow.length === 0 && selectedTopicId !== null) {
+                resultsContainer.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">Filter</div>
+                        <div class="empty-state-title">No documents match this topic</div>
+                        <div class="empty-state-text">Try selecting a different topic or clear the filter.</div>
+                    </div>
+                `;
+                return;
+            }
+
+            if (documentsToShow.length === 0 && searchQuery !== '') {
+                resultsContainer.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">Search</div>
+                        <div class="empty-state-title">No documents match your search</div>
+                        <div class="empty-state-text">Try a different search term or clear the filter.</div>
+                    </div>
+                `;
+                return;
+            }
 
             resultsContainer.innerHTML = `
                 <div class="results-header">
                     <div class="results-count">
-                        Found <strong>${data.hits.length}</strong> result(s) for "<strong>${data.query}</strong>"
-                        ${currentTopicFilter !== null ? `<span class="filter-badge">Topic ${currentTopicFilter}</span>` : ''}
+                        Showing <strong>${documentsToShow.length}</strong> of <strong>${allDocuments.length}</strong> document(s)
                     </div>
-                    ${filterInfo}
                 </div>
-                ${data.hits.map(doc => createDocumentCard(doc)).join('')}
+                ${documentsToShow.map(doc => createDocumentCard(doc)).join('')}
             `;
         }
 
-        // Create document card HTML
         function createDocumentCard(doc) {
+            const title = doc.title || doc.metadata?.webTitle || doc.id;
+            
             const topicsHtml = doc.topics && Object.values(doc.topics).length > 0
-                ? Object.values(doc.topics)
-                    .sort((a, b) => b.weight - a.weight)
-                    .map(topic => `
-                        <div class="topic-badge" title="${topic.topWords.join(', ')}">
-                            Topic ${topic.id}
-                            <span class="topic-weight">${(topic.weight * 100).toFixed(0)}%</span>
-                        </div>
-                    `).join('')
-                : '<span style="color: #999; font-size: 0.9rem;">No topics assigned</span>';
+                ? `<div class="doc-topics">
+                    ${Object.values(doc.topics)
+                        .sort((a, b) => b.weight - a.weight)
+                        .slice(0, 5)
+                        .map(topic => {
+                            const isSelected = selectedTopicId === topic.id;
+                            const style = isSelected ? 'opacity: 1; box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.3);' : '';
+                            return `
+                                <div class="topic-badge" title="${topic.topWords.join(', ')}" style="${style}">
+                                    Topic ${topic.id}
+                                    <span class="topic-weight">${(topic.weight * 100).toFixed(0)}%</span>
+                                </div>
+                            `;
+                        }).join('')}
+                   </div>`
+                : '';
 
             return `
                 <div class="document-card">
-                    <h2 class="doc-title">${doc.metadata?.webTitle || doc.id}</h2>
+                    <h2 class="doc-title">${title}</h2>
                     ${doc.url ? `<a href="${doc.url}" target="_blank" class="doc-url">${doc.url}</a>` : ''}
-                    <p class="doc-content">${doc.content ? doc.content.substring(0, 300) + '...' : 'No content available'}</p>
-                    <div class="doc-topics">${topicsHtml}</div>
+                    <p class="doc-content">${doc.content ? doc.content.substring(0, 400) + '...' : 'No content available'}</p>
+                    ${topicsHtml}
                 </div>
             `;
         }
 
-        // Clear topic filter
-        function clearTopicFilter() {
-            currentTopicFilter = null;
-            document.querySelectorAll('.topic-item').forEach(item => item.classList.remove('active'));
-            updateFilterBadge();
-            searchDocuments();
-        }
-
-        // Reindex documents
-        async function reindexDocuments() {
-            if (!confirm('This will reindex all documents and retrain the topic model. This may take several minutes. Continue?')) {
+        async function crawlAndIndex() {
+            const keyword = document.getElementById('crawlKeywordInput').value.trim();
+            const topicFilter = document.getElementById('crawlTopicFilterInput').value.trim();
+            
+            if (!keyword) {
+                showMessage('Please enter a search keyword', 'error');
                 return;
             }
 
-            showMessage('Reindexing started... This may take several minutes.', 'success');
+            let url = `${API_BASE}/trigger/crawl-and-index?topic=${encodeURIComponent(keyword)}`;
+            let message = `Crawling documents for "${keyword}" and training topic model...`;
+            
+            if (topicFilter) {
+                url += `&targetTopics=${encodeURIComponent(topicFilter)}`;
+                message = `Crawling documents for "${keyword}", training topic model, and filtering by topics [${topicFilter}]...`;
+            }
+            
+            showMessage(message + ' This may take several minutes.', 'success');
 
             try {
-                const response = await fetch(`${API_BASE}/admin/reindex`, {
+                const response = await fetch(url, {
                     method: 'POST'
                 });
                 
-                const message = await response.text();
+                const responseMessage = await response.text();
                 
                 if (response.ok) {
-                    showMessage('Reindexing completed successfully!', 'success');
-                    loadTopics(); // Reload topics
+                    showMessage('Success: ' + responseMessage, 'success');
+                    selectedTopicId = null;
+                    searchQuery = '';
+                    document.getElementById('searchInput').value = '';
+                    loadTopics();
+                    setTimeout(() => loadAllDocuments(), 2000);
                 } else {
-                    showMessage('Reindexing failed: ' + message, 'error');
+                    showMessage('Process failed: ' + responseMessage, 'error');
                 }
             } catch (error) {
-                console.error('Error reindexing:', error);
-                showMessage('Failed to reindex documents', 'error');
+                console.error('Error:', error);
+                showMessage('Failed to crawl and index documents', 'error');
             }
         }
 
-        // Delete all data (documents + topics)
         async function deleteAllData() {
-            if (!confirm('⚠️ WARNING: This will permanently delete ALL documents and topics from MongoDB. This action cannot be undone. Continue?')) {
+            if (!confirm('WARNING: This will permanently delete ALL documents and topics. This cannot be undone. Continue?')) {
                 return;
             }
 
@@ -613,15 +728,14 @@
                 const message = await response.text();
                 
                 if (response.ok) {
-                    showMessage(message, 'success');
+                    showMessage('Success: ' + message, 'success');
+                    selectedTopicId = null;
+                    searchQuery = '';
+                    document.getElementById('searchInput').value = '';
                     loadTopics();
-                    currentTopicFilter = null;
-                    updateFilterBadge();
-                    document.getElementById('resultsContainer').innerHTML = `
-                        <div style="text-align: center; padding: 60px; color: #999;">
-                            <p style="font-size: 1.2rem;">All data has been deleted</p>
-                        </div>
-                    `;
+                    allDocuments = [];
+                    displayResults();
+                    updateFilterInfo();
                 } else {
                     showMessage('Delete failed: ' + message, 'error');
                 }
@@ -631,100 +745,6 @@
             }
         }
 
-        // Delete only documents
-        async function deleteDocuments() {
-            if (!confirm('⚠️ This will permanently delete ALL documents from MongoDB. Continue?')) {
-                return;
-            }
-
-            showMessage('Deleting documents...', 'success');
-
-            try {
-                const response = await fetch(`${API_BASE}/admin/documents`, {
-                    method: 'DELETE'
-                });
-                
-                const message = await response.text();
-                
-                if (response.ok) {
-                    showMessage(message, 'success');
-                    document.getElementById('resultsContainer').innerHTML = `
-                        <div style="text-align: center; padding: 60px; color: #999;">
-                            <p style="font-size: 1.2rem;">All documents have been deleted</p>
-                        </div>
-                    `;
-                } else {
-                    showMessage('Delete failed: ' + message, 'error');
-                }
-            } catch (error) {
-                console.error('Error deleting documents:', error);
-                showMessage('Failed to delete documents', 'error');
-            }
-        }
-
-        // Delete only topics
-        async function deleteTopics() {
-            if (!confirm('⚠️ This will permanently delete ALL topics from MongoDB. Continue?')) {
-                return;
-            }
-
-            showMessage('Deleting topics...', 'success');
-
-            try {
-                const response = await fetch(`${API_BASE}/admin/topics`, {
-                    method: 'DELETE'
-                });
-                
-                const message = await response.text();
-                
-                if (response.ok) {
-                    showMessage(message, 'success');
-                    loadTopics();
-                    currentTopicFilter = null;
-                    updateFilterBadge();
-                } else {
-                    showMessage('Delete failed: ' + message, 'error');
-                }
-            } catch (error) {
-                console.error('Error deleting topics:', error);
-                showMessage('Failed to delete topics', 'error');
-            }
-        }
-
-        // Ingest documents (now respects topic filter)
-        async function ingestDocuments() {
-            const topic = document.getElementById('topicInput').value.trim();
-            
-            if (!topic) {
-                showMessage('Please enter a topic', 'error');
-                return;
-            }
-
-            // Build URL with optional topic filter
-            let url = `${API_BASE}/trigger?topic=${encodeURIComponent(topic)}`;
-            let message = `Crawling documents for topic: ${topic}`;
-            
-            if (currentTopicFilter !== null) {
-                url += `&targetTopics=${currentTopicFilter}`;
-                message += ` (filtering for Topic ${currentTopicFilter})`;
-            }
-            
-            showMessage(message + '...', 'success');
-
-            try {
-                const response = await fetch(url, {
-                    method: 'POST'
-                });
-                
-                const responseMessage = await response.text();
-                showMessage(responseMessage, 'success');
-            } catch (error) {
-                console.error('Error ingesting:', error);
-                showMessage('Failed to ingest documents', 'error');
-            }
-        }
-
-        // Show message
         function showMessage(message, type) {
             const container = document.getElementById('messageContainer');
             const messageDiv = document.createElement('div');
@@ -735,7 +755,7 @@
 
             setTimeout(() => {
                 messageDiv.remove();
-            }, 5000);
+            }, 8000);
         }
     </script>
 </body>

@@ -4,73 +4,78 @@ import com.unipd.dei.sp.elasticsearch.ElasticSearchService;
 import com.unipd.dei.sp.mallet.MalletTopicModelingService;
 import com.unipd.dei.sp.model.Document;
 import com.unipd.dei.sp.model.Topic;
+import com.unipd.dei.sp.repository.DocumentRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
 
-/**
- * Representation Extraction Service
- * Bridges Elasticsearch and Mallet to provide topic-enriched search results
+/*
+ * Service for enriching search results with topic information.
+ * Combines document data with topic modeling results.
  */
 @Service
 public class RepresentationExtractionService {
 
     @Autowired
-    private ElasticSearchService elasticsearchService;
+    private DocumentRepository documentRepository;
 
     @Autowired
     private MalletTopicModelingService malletService;
 
-    /**
-     * Search documents and enrich with topic information
+    /*
+     * Performs a search and enriches results with topic data.
+     * Supports wildcard queries to retrieve all documents.
+     * Can filter results by a specific topic if provided.
      */
     public GatewayController.SearchResponse searchWithTopics(String query, Integer topicFilter) {
-        // Step 1: Query Elasticsearch
-        List<Document> documents = elasticsearchService.searchByContent(query);
+        List<Document> documents;
+        
+        // Wildcard or empty query returns all documents
+        if (query == null || query.trim().isEmpty() || query.equals("*")) {
+            documents = documentRepository.findAll();
+        } else {
+            // Future enhancement: use Elasticsearch for text search
+            documents = documentRepository.findAll();
+        }
 
-        // Step 2: Get all topics from MongoDB
         Map<Integer, Topic> topicsMap = malletService.getAllTopics().stream()
                 .collect(Collectors.toMap(Topic::id, t -> t));
 
-        // Step 3: Enrich documents with topic information
         List<GatewayController.EnrichedDocument> enrichedDocs = documents.stream()
                 .map(doc -> enrichDocument(doc, topicsMap))
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
 
-        // Step 4: Apply topic filter if specified
+        // Keep only documents containing the specified topic
         if (topicFilter != null) {
             enrichedDocs = enrichedDocs.stream()
-                    .filter(doc -> doc.topics().containsKey(topicFilter))
+                    .filter(doc -> doc.topics() != null && doc.topics().containsKey(topicFilter))
                     .collect(Collectors.toList());
         }
 
         return new GatewayController.SearchResponse(query, enrichedDocs);
     }
 
-    /**
-     * Enrich a document with topic distribution
+    /*
+     * Adds topic information to a document.
+     * Uses the topics already embedded in the document during indexing.
      */
     private GatewayController.EnrichedDocument enrichDocument(Document doc, Map<Integer, Topic> topicsMap) {
         try {
-            // Get topic distribution for this document
-            Map<Integer, Double> topicDistribution = malletService.getDocumentTopicDistribution(doc);
-
-            // Create topic info map
             Map<Integer, GatewayController.TopicInfo> topicInfoMap = new HashMap<>();
-            for (Map.Entry<Integer, Double> entry : topicDistribution.entrySet()) {
-                Integer topicId = entry.getKey();
-                Double weight = entry.getValue();
-                Topic topic = topicsMap.get(topicId);
-                
-                if (topic != null) {
+            
+            // Documents already contain topic data from the ingestion phase
+            if (doc.topics() != null && !doc.topics().isEmpty()) {
+                for (Map.Entry<Integer, Document.TopicInfo> entry : doc.topics().entrySet()) {
+                    Integer topicId = entry.getKey();
+                    Document.TopicInfo docTopicInfo = entry.getValue();
+                    
                     topicInfoMap.put(topicId, new GatewayController.TopicInfo(
                         topicId,
-                        weight,
-                        topic.topWords()
+                        docTopicInfo.weight(),
+                        docTopicInfo.topWords()
                     ));
                 }
             }
@@ -82,15 +87,13 @@ public class RepresentationExtractionService {
                 truncateContent(doc.content()),
                 topicInfoMap
             );
-        } catch (IOException e) {
+        } catch (Exception e) {
             System.err.println("Error enriching document: " + e.getMessage());
             return null;
         }
     }
 
-    /**
-     * Extract title from document metadata
-     */
+    // Extracts a display title from document metadata or uses the ID as fallback
     private String extractTitle(Document doc) {
         if (doc.metadata() != null && doc.metadata().containsKey("webTitle")) {
             return doc.metadata().get("webTitle");
@@ -98,24 +101,18 @@ public class RepresentationExtractionService {
         return doc.id();
     }
 
-    /**
-     * Truncate content for display
-     */
+    // Shortens long content for display purposes
     private String truncateContent(String content) {
         if (content == null) return "";
         return content.length() > 500 ? content.substring(0, 500) + "..." : content;
     }
 
-    /**
-     * Get all topics
-     */
+    // Returns all topics from the topic model
     public List<Topic> getAllTopics() {
         return malletService.getAllTopics();
     }
 
-    /**
-     * Get topic by ID
-     */
+    // Retrieves a specific topic by its identifier
     public Topic getTopicById(Integer topicId) {
         return malletService.getTopicById(topicId);
     }

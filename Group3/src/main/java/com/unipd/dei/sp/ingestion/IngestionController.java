@@ -1,5 +1,6 @@
 package com.unipd.dei.sp.ingestion;
 
+import com.unipd.dei.sp.elasticsearch.ElasticSearchService;
 import com.unipd.dei.sp.mallet.MalletTopicModelingService;
 import com.unipd.dei.sp.model.Document;
 import com.unipd.dei.sp.model.Topic;
@@ -12,10 +13,14 @@ import org.springframework.web.bind.annotation.RestController;
 import java.io.IOException;
 import java.util.*;
 
-/**
- * Exposes endpoints to trigger crawling and filtering of documents.
+/*
+ * Controller for the complete document ingestion and processing pipeline.
  * 
- * Pipeline: crawl → keyword filter → topic filter → enrich → store
+ * The pipeline works in two main steps:
+ * 1. Extract topics from documents (trainTopicModel phase)
+ * 2. Filter documents based on those topics (TopicInferencer phase)
+ * 
+ * Flow: crawl -> keyword filter -> store -> train topics -> topic filter -> enrich -> update -> index
  */
 @RestController
 public class IngestionController {
@@ -27,35 +32,222 @@ public class IngestionController {
     private RelevanceFilterService filterService;
    
     @Autowired
-    private TopicFilterService topicFilterService;
-   
-    @Autowired
     private MalletTopicModelingService malletService;
    
     @Autowired
     private DocumentRepository documentRepository;
+    
+    @Autowired
+    private ElasticSearchService elasticsearchService;
 
-    /**
-     * Trigger manual crawling and ingestion with keyword and optional topic filtering.
-     * Documents are enriched with topic information before storing.
+    // Topics below this weight threshold are ignored
+    private static final double TOPIC_WEIGHT_THRESHOLD = 0.10;
+
+    /*
+     * Main endpoint that runs the complete document processing pipeline.
      * 
-     * @param topic The topic keyword used for crawling and keyword filtering
-     * @param targetTopicsParam Comma-separated topic IDs to filter by (e.g., "2,5,7")
-     * @return Status message
+     * STEP 1: Build the topic model
+     * - Crawl documents from The Guardian
+     * - Filter out irrelevant documents using keyword matching
+     * - Store relevant documents in MongoDB
+     * - Train the topic model on these documents
+     * 
+     * STEP 2: Filter by topics and finalize
+     * - Use the trained model to get topic distributions
+     * - Keep only documents containing specified topics
+     * - Enrich documents with their topic information
+     * - Remove filtered documents from the database
+     * - Index the final set to Elasticsearch
      */
-    @PostMapping("/api/trigger")
-    public String manualTrigger(
+    @PostMapping("/api/trigger/crawl-and-index")
+    public String crawlAndIndex(
             @RequestParam(name = "topic", defaultValue = "science") String topic,
             @RequestParam(name = "targetTopics", required = false) String targetTopicsParam) {
         
+        System.out.println("=== UNIFIED PIPELINE STARTED ===");
+        System.out.println("Keyword: " + topic);
+        
         Set<Integer> targetTopics = parseTargetTopics(targetTopicsParam);
-        runPipeline(topic, targetTopics);
-        return "Crawling and filtering completed for topic: " + topic;
+        if (targetTopics != null && !targetTopics.isEmpty()) {
+            System.out.println("Target topics for filtering: " + targetTopics);
+        }
+        
+        try {
+            // Step 1: Build the topic model from crawled documents
+            System.out.println("\n=== STEP 1: EXTRACT TOPICS ===");
+            
+            // Crawl articles from The Guardian API
+            System.out.println("\n[1.1] Crawling documents from The Guardian API...");
+            List<Document> crawledDocs = crawlerService.crawl(topic);
+            System.out.println("Crawled " + crawledDocs.size() + " documents");
+            
+            // Apply keyword relevance filtering and store
+            System.out.println("\n[1.2] Filtering by keyword relevance and storing...");
+            int stored = 0;
+            int keywordFiltered = 0;
+            
+            for (Document doc : crawledDocs) {
+                boolean isRelevant = filterService.isRelevant(doc, topic);
+                
+                if (isRelevant) {
+                    documentRepository.save(doc);
+                    stored++;
+                } else {
+                    keywordFiltered++;
+                }
+            }
+            
+            System.out.println("Stored: " + stored + " documents");
+            System.out.println("Keyword filtered out: " + keywordFiltered + " documents");
+            
+            // Get complete document set from database
+            List<Document> allDocuments = documentRepository.findAll();
+            
+            if (allDocuments.isEmpty()) {
+                return "No documents to train on. Please crawl some documents first.";
+            }
+            
+            // Train the topic model
+            System.out.println("\n[1.3] Training topic model on " + allDocuments.size() + " total documents...");
+            malletService.trainTopicModel(allDocuments);
+            System.out.println("Topic model trained successfully");
+            
+            // Step 2: Filter by topics and finalize dataset
+            if (targetTopics != null && !targetTopics.isEmpty()) {
+                System.out.println("\n=== STEP 2: FILTER BY TOPICS (using TopicInferencer) ===");
+                
+                List<Document> documentsToKeep = new ArrayList<>();
+                List<Document> documentsToDelete = new ArrayList<>();
+                int topicFilteredCount = 0;
+                int errorCount = 0;
+                
+                // Check each document against target topics
+                System.out.println("\n[2.1] Using TopicInferencer to filter documents by topics: " + targetTopics);
+                
+                for (Document doc : allDocuments) {
+                    try {
+                        // Get topic distribution from the trained model
+                        Map<Integer, Double> topicDistribution = malletService.getDocumentTopicDistribution(doc);
+                        
+                        // Check if document has any target topic
+                        boolean hasTargetTopic = false;
+                        for (Integer targetTopic : targetTopics) {
+                            Double weight = topicDistribution.get(targetTopic);
+                            if (weight != null && weight >= TOPIC_WEIGHT_THRESHOLD) {
+                                hasTargetTopic = true;
+                                System.out.println("  Document " + doc.id() + " contains topic " + 
+                                                 targetTopic + " (weight: " + String.format("%.2f", weight) + ") - KEEPING");
+                                break;
+                            }
+                        }
+                        
+                        if (hasTargetTopic) {
+                            Document enriched = enrichDocumentWithTopics(doc, topicDistribution);
+                            documentsToKeep.add(enriched);
+                        } else {
+                            documentsToDelete.add(doc);
+                            topicFilteredCount++;
+                            System.out.println("  Document " + doc.id() + " does not contain target topics - FILTERING OUT");
+                        }
+                        
+                    } catch (Exception e) {
+                        System.err.println("Error processing document " + doc.id() + ": " + e.getMessage());
+                        // On error, filter out the document since we cannot determine its topics
+                        documentsToDelete.add(doc);
+                        errorCount++;
+                    }
+                }
+                
+                System.out.println("\nDocuments to keep: " + documentsToKeep.size());
+                System.out.println("Documents to filter out: " + topicFilteredCount);
+                if (errorCount > 0) {
+                    System.out.println("Documents with processing errors (filtered out): " + errorCount);
+                }
+                
+                // Remove filtered documents from database
+                System.out.println("\n[2.2] Removing filtered documents from MongoDB...");
+                for (Document doc : documentsToDelete) {
+                    documentRepository.delete(doc);
+                }
+                System.out.println("Removed " + documentsToDelete.size() + " documents");
+                
+                // Update kept documents with topic information
+                System.out.println("\n[2.3] Updating kept documents in MongoDB...");
+                documentRepository.saveAll(documentsToKeep);
+                System.out.println("Updated " + documentsToKeep.size() + " documents");
+                
+                // Index to Elasticsearch
+                System.out.println("\n[2.4] Indexing filtered documents to Elasticsearch...");
+                elasticsearchService.bulkIndexDocuments(documentsToKeep);
+                System.out.println("Indexed " + documentsToKeep.size() + " documents");
+                
+                // Print summary
+                System.out.println("\n=== SUMMARY (with topic filtering) ===");
+                System.out.println("Crawled: " + crawledDocs.size());
+                System.out.println("Keyword filtered: " + keywordFiltered);
+                System.out.println("Topic filtered: " + topicFilteredCount);
+                if (errorCount > 0) {
+                    System.out.println("Errors (filtered out): " + errorCount);
+                }
+                System.out.println("Final documents stored: " + documentsToKeep.size());
+                System.out.println("Target topics: " + targetTopics);
+                System.out.println("======================================\n");
+                
+                return String.format(
+                    "Pipeline completed! Crawled %d documents, filtered by keyword (%d removed), " +
+                    "trained topic model on %d documents, filtered by topics %s (%d removed). " +
+                    "Final stored documents: %d",
+                    crawledDocs.size(), keywordFiltered, allDocuments.size(), 
+                    targetTopics, documentsToDelete.size(), documentsToKeep.size()
+                );
+                
+            } else {
+                // No topic filtering - enrich all documents
+                System.out.println("\n=== NO TOPIC FILTERING - Enriching all documents ===");
+                
+                List<Document> enrichedDocuments = new ArrayList<>();
+                
+                for (Document doc : allDocuments) {
+                    try {
+                        Map<Integer, Double> topicDistribution = malletService.getDocumentTopicDistribution(doc);
+                        Document enriched = enrichDocumentWithTopics(doc, topicDistribution);
+                        enrichedDocuments.add(enriched);
+                    } catch (Exception e) {
+                        System.err.println("Error enriching document " + doc.id() + ": " + e.getMessage());
+                        enrichedDocuments.add(doc);
+                    }
+                }
+                
+                System.out.println("\n[3] Updating MongoDB with enriched documents...");
+                documentRepository.saveAll(enrichedDocuments);
+                System.out.println("Updated " + enrichedDocuments.size() + " documents");
+                
+                System.out.println("\n[4] Indexing to Elasticsearch...");
+                elasticsearchService.bulkIndexDocuments(enrichedDocuments);
+                System.out.println("Indexed " + enrichedDocuments.size() + " documents");
+                
+                System.out.println("\n=== SUMMARY (no topic filtering) ===");
+                System.out.println("Crawled: " + crawledDocs.size());
+                System.out.println("Keyword filtered: " + keywordFiltered);
+                System.out.println("Total documents: " + allDocuments.size());
+                System.out.println("All documents enriched with topics");
+                System.out.println("====================================\n");
+                
+                return String.format(
+                    "Pipeline completed! Crawled %d new documents for '%s'. " +
+                    "Total documents: %d. All documents enriched with topic information.",
+                    stored, topic, allDocuments.size()
+                );
+            }
+            
+        } catch (Exception e) {
+            System.err.println("ERROR in pipeline: " + e.getMessage());
+            e.printStackTrace();
+            return "Error in pipeline: " + e.getMessage();
+        }
     }
 
-    /**
-     * Parse comma-separated topic IDs into a Set
-     */
+    // Parses comma-separated topic IDs from request parameter
     private Set<Integer> parseTargetTopics(String targetTopicsParam) {
         if (targetTopicsParam == null || targetTopicsParam.trim().isEmpty()) {
             return null;
@@ -72,109 +264,19 @@ public class IngestionController {
         return topics.isEmpty() ? null : topics;
     }
 
-    /**
-     * Executes the ingestion pipeline: crawl → keyword filter → topic filter → enrich → store.
-     * 
-     * Documents are filtered BEFORE storing to MongoDB.
-     * This ensures only filtered documents are used for training and indexing.
-     *
-     * @param topic The topic used for crawling and keyword filtering
-     * @param targetTopics Set of topic IDs to filter for (null = no topic filter)
+    /*
+     * Adds topic information to a document using the topic distribution.
+     * The distribution comes from the TopicInferencer after model training.
      */
-    private void runPipeline(String topic, Set<Integer> targetTopics) {
-        System.out.println("--- Starting Pipeline for: " + topic + " ---");
-
-        // Step 1: Gather documents from The Guardian API
-        List<Document> docs = crawlerService.crawl(topic);
-        System.out.println("Found " + docs.size() + " documents from crawler.");
-
-        // Check if topic filtering is enabled
-        boolean topicFilterEnabled = malletService.isModelTrained();
-        if (topicFilterEnabled && targetTopics != null && !targetTopics.isEmpty()) {
-            System.out.println("Topic filtering: ENABLED (filtering for topics: " + targetTopics + ")");
-        } else if (topicFilterEnabled) {
-            System.out.println("Topic filtering: AVAILABLE but no target topics specified");
-        } else {
-            System.out.println("Topic filtering: DISABLED (model not trained yet)");
-        }
-
-        int keywordFiltered = 0;
-        int topicFiltered = 0;
-        int stored = 0;
-
-        // Step 2: Apply filters, enrich, and store
-        for (Document doc : docs) {
-            try {
-                // FILTER 1: Keyword-based relevance filter
-                boolean isRelevant = filterService.isRelevant(doc, topic);
-                
-                if (!isRelevant) {
-                    keywordFiltered++;
-                    System.out.println("Document " + doc.id() + " filtered by keyword filter");
-                    continue;
-                }
-
-                // FILTER 2: Topic-based filter (only if model trained AND target topics specified)
-                if (topicFilterEnabled && targetTopics != null && !targetTopics.isEmpty()) {
-                    boolean hasTargetTopics = topicFilterService.hasTargetTopics(doc, targetTopics);
-                    
-                    if (!hasTargetTopics) {
-                        topicFiltered++;
-                        System.out.println("Document " + doc.id() + " filtered by topic filter");
-                        continue;
-                    }
-                }
-
-                // ENRICH: Add topic information to document (if model is trained)
-                Document enrichedDoc = enrichDocumentWithTopics(doc);
-
-                // Document passed all filters - store enriched version
-                documentRepository.save(enrichedDoc);
-                stored++;
-                System.out.println("✓ Stored document: " + enrichedDoc.id());
-
-            } catch (Exception e) {
-                System.err.println("Error processing document: " + e.getMessage());
-                e.printStackTrace();
-            }
-        }
-
-        // Print summary
-        System.out.println("\n--- Pipeline Summary ---");
-        System.out.println("Total crawled: " + docs.size());
-        System.out.println("Filtered by keyword: " + keywordFiltered);
-        System.out.println("Filtered by topic: " + topicFiltered);
-        System.out.println("Successfully stored: " + stored);
-        System.out.println("------------------------\n");
-    }
-
-    /**
-     * Enrich document with topic information.
-     * For each topic in the document's distribution, includes:
-     * - Topic ID
-     * - Weight (probability)
-     * - Top words
-     * 
-     * @param doc The document to enrich
-     * @return Enriched document with topic information
-     */
-    private Document enrichDocumentWithTopics(Document doc) {
-        if (!malletService.isModelTrained()) {
-            return doc; // No enrichment if model not trained
-        }
-        
+    private Document enrichDocumentWithTopics(Document doc, Map<Integer, Double> topicDistribution) {
         try {
-            // Get topic distribution using TopicInferencer
-            Map<Integer, Double> topicDist = malletService.getDocumentTopicDistribution(doc);
-            
-            // Build topic info map
             Map<Integer, Document.TopicInfo> topicInfoMap = new HashMap<>();
             
-            for (Map.Entry<Integer, Double> entry : topicDist.entrySet()) {
+            for (Map.Entry<Integer, Double> entry : topicDistribution.entrySet()) {
                 int topicId = entry.getKey();
                 double weight = entry.getValue();
                 
-                // Get top words for this topic from MongoDB
+                // Get the top words for this topic
                 Topic topic = malletService.getTopicById(topicId);
                 List<String> topWords = topic != null ? topic.topWords() : List.of();
                 
@@ -185,7 +287,7 @@ public class IngestionController {
                 ));
             }
             
-            // Return enriched document
+            // Create new document with topic information
             return new Document(
                 doc.id(),
                 doc.url(),
@@ -193,12 +295,12 @@ public class IngestionController {
                 doc.source(),
                 doc.timestamp(),
                 doc.metadata(),
-                topicInfoMap  // ← Enriched with topics
+                topicInfoMap
             );
             
-        } catch (IOException e) {
+        } catch (Exception e) {
             System.err.println("Failed to enrich document with topics: " + e.getMessage());
-            return doc; // Return original document on error
+            return doc;
         }
     }
 }

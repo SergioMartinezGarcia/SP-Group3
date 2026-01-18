@@ -4,6 +4,10 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.data.mongodb.repository.config.EnableMongoRepositories;
 
+/*
+ * Main application entry point.
+ * Starts the Spring Boot application and configures component scanning.
+ */
 @SpringBootApplication(scanBasePackages = "com.unipd.dei.sp")
 @EnableMongoRepositories(basePackages = "com.unipd.dei.sp.repository")
 public class Group3Application {

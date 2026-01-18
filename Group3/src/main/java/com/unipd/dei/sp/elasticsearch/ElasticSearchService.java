@@ -13,8 +13,9 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.stream.Collectors;
 
-/**
- * Service for Elasticsearch operations
+/*
+ * Service for interacting with Elasticsearch.
+ * Handles document indexing and searching operations.
  */
 @Service
 public class ElasticSearchService {
@@ -22,23 +23,17 @@ public class ElasticSearchService {
     @Autowired
     private ElasticsearchOperations elasticsearchOperations;
 
-    /**
-     * Index a document in Elasticsearch
-     */
+    // Adds a single document to the search index
     public void indexDocument(Document doc) {
         elasticsearchOperations.save(doc);
     }
 
-    /**
-     * Bulk index multiple documents
-     */
+    // Adds multiple documents to the search index at once
     public void bulkIndexDocuments(List<Document> docs) {
         docs.forEach(this::indexDocument);
     }
 
-    /**
-     * Search documents by query text in content field
-     */
+    // Searches for documents matching the query text in their content
     public List<Document> searchByContent(String queryText) {
         Criteria criteria = new Criteria("content").matches(queryText);
         Query query = new CriteriaQuery(criteria);
@@ -50,17 +45,15 @@ public class ElasticSearchService {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Search documents with topic filter
+    /*
+     * Searches documents with an optional topic filter.
+     * Currently simplified to just search by content.
      */
     public List<Document> searchWithTopicFilter(String queryText, Integer topicId) {
-        // This would require nested query - simplified for now
         return searchByContent(queryText);
     }
 
-    /**
-     * Get document by ID
-     */
+    // Retrieves a specific document by its unique identifier
     public Document getDocumentById(String id) {
         return elasticsearchOperations.get(id, Document.class);
     }

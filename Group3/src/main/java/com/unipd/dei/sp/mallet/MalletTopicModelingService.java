@@ -18,8 +18,9 @@ import java.io.IOException;
 import java.util.*;
 import java.util.regex.Pattern;
 
-/**
- * Service for Mallet topic modeling operations
+/*
+ * Service for topic modeling using the Mallet library.
+ * Trains models to discover topics in document collections and infer topics in new documents.
  */
 @Service
 public class MalletTopicModelingService {
@@ -32,8 +33,9 @@ public class MalletTopicModelingService {
     private static final int NUM_ITERATIONS = 1000;
     private static final int NUM_TOP_WORDS = 25;
 
-    /**
-     * Train topic model on a collection of documents
+    /*
+     * Trains the topic model on a collection of documents.
+     * Extracts the most important topics and saves them to the database.
      */
     public void trainTopicModel(List<Document> documents) throws IOException {
         System.out.println("Starting Mallet topic modeling training...");
@@ -48,31 +50,28 @@ public class MalletTopicModelingService {
 
         topicModel.estimate();
 
-        // Save topics to MongoDB
         saveTopicsToMongo();
 
         System.out.println("Topic modeling training completed!");
     }
 
-    /**
-     * Check if the topic model has been trained
-     * @return true if model is trained and ready for inference
-     */
+    // Checks whether the model has been trained and is ready for use
     public boolean isModelTrained() {
         return topicModel != null;
     }
 
-    /**
-     * Create Mallet InstanceList from documents
+    /*
+     * Converts documents into Mallet's internal format.
+     * Applies preprocessing like lowercasing, tokenization, and stopword removal.
      */
     private InstanceList createInstanceList(List<Document> documents) throws IOException {
         ArrayList<Pipe> pipeList = new ArrayList<>();
 
-        // Preprocessing pipeline
+        // Text preprocessing pipeline
         pipeList.add(new CharSequenceLowercase());
         pipeList.add(new CharSequence2TokenSequence(Pattern.compile("\\p{L}[\\p{L}\\p{P}]+\\p{L}")));
         
-        // Load stopwords - Mallet 2.0.8 uses File, not InputStream
+        // Remove common words that don't help with topic discovery
         File stopwordsFile = new ClassPathResource("stoplist_en.txt").getFile();
         pipeList.add(new TokenSequenceRemoveStopwords(stopwordsFile, "UTF-8", false, false, false));
         
@@ -80,7 +79,7 @@ public class MalletTopicModelingService {
 
         InstanceList instances = new InstanceList(new SerialPipes(pipeList));
 
-        // Add documents to instance list
+        // Convert each document to a Mallet instance
         for (Document doc : documents) {
             instances.addThruPipe(new Instance(
                 doc.content() != null ? doc.content() : "",
@@ -93,16 +92,14 @@ public class MalletTopicModelingService {
         return instances;
     }
 
-    /**
-     * Save extracted topics to MongoDB
-     */
+    // Stores the discovered topics in MongoDB for later retrieval
     private void saveTopicsToMongo() {
-        topicRepository.deleteAll(); // Clear old topics
+        topicRepository.deleteAll();
 
         for (int t = 0; t < NUM_TOPICS; t++) {
             List<String> topWords = new ArrayList<>();
             
-            // Get top words for this topic
+            // Extract the most representative words for this topic
             TreeSet<IDSorter> sortedWords = topicModel.getSortedWords().get(t);
             Alphabet alphabet = topicModel.getAlphabet();
             
@@ -120,21 +117,21 @@ public class MalletTopicModelingService {
         System.out.println("Saved " + NUM_TOPICS + " topics to MongoDB");
     }
 
-    /**
-     * Get topic distribution for a document using TopicInferencer
-     * This is the key method for filtering documents by topic
+    /*
+     * Determines the topic distribution for a single document.
+     * This uses the TopicInferencer to analyze documents that weren't in the training set.
+     * Returns a map of topic IDs to their weights in the document.
      */
     public Map<Integer, Double> getDocumentTopicDistribution(Document doc) throws IOException {
         if (topicModel == null) {
             throw new IllegalStateException("Topic model not trained yet");
         }
 
-        // Create instance for this document
+        // Prepare the document for analysis
         ArrayList<Pipe> pipeList = new ArrayList<>();
         pipeList.add(new CharSequenceLowercase());
         pipeList.add(new CharSequence2TokenSequence(Pattern.compile("\\p{L}[\\p{L}\\p{P}]+\\p{L}")));
         
-        // Load stopwords 
         File stopwordsFile = new ClassPathResource("stoplist_en.txt").getFile();
         pipeList.add(new TokenSequenceRemoveStopwords(stopwordsFile, "UTF-8", false, false, false));
         
@@ -143,14 +140,15 @@ public class MalletTopicModelingService {
         InstanceList instances = new InstanceList(new SerialPipes(pipeList));
         instances.addThruPipe(new Instance(doc.content(), doc.id(), doc.id(), null));
 
-        // Get topic distribution using TopicInferencer
+        // Infer topic proportions for this document
         double[] topicDistribution = topicModel.getInferencer().getSampledDistribution(
             instances.get(0), 10, 1, 5
         );
 
         Map<Integer, Double> distribution = new HashMap<>();
         for (int i = 0; i < topicDistribution.length; i++) {
-            if (topicDistribution[i] > 0.01) { // Only include topics with >1% weight
+            // Only include topics with meaningful presence
+            if (topicDistribution[i] > 0.01) {
                 distribution.put(i, topicDistribution[i]);
             }
         }
@@ -158,16 +156,12 @@ public class MalletTopicModelingService {
         return distribution;
     }
 
-    /**
-     * Get all topics from MongoDB
-     */
+    // Retrieves all topics from the database
     public List<Topic> getAllTopics() {
         return topicRepository.findAll();
     }
 
-    /**
-     * Get topic by ID
-     */
+    // Retrieves a specific topic by its identifier
     public Topic getTopicById(Integer topicId) {
         return topicRepository.findById(topicId).orElse(null);
     }
