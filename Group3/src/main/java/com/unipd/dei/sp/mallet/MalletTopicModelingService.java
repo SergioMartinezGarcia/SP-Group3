@@ -15,6 +15,10 @@ import org.springframework.stereotype.Service;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.*;
 import java.util.regex.Pattern;
 
@@ -61,6 +65,29 @@ public class MalletTopicModelingService {
     }
 
     /*
+     * Loads the stopwords file from classpath.
+     * Handles both file system and JAR-based resources.
+     */
+    private File getStopwordsFile() throws IOException {
+        ClassPathResource resource = new ClassPathResource("stoplist_en.txt");
+        
+        // Try to get as File first (works when running from IDE)
+        if (resource.exists() && resource.isFile()) {
+            return resource.getFile();
+        }
+        
+        // If in JAR, extract to temporary file
+        File tempFile = File.createTempFile("stoplist_en", ".txt");
+        tempFile.deleteOnExit();
+        
+        try (InputStream inputStream = resource.getInputStream()) {
+            Files.copy(inputStream, tempFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+        }
+        
+        return tempFile;
+    }
+
+    /*
      * Converts documents into Mallet's internal format.
      * Applies preprocessing like lowercasing, tokenization, and stopword removal.
      */
@@ -72,7 +99,7 @@ public class MalletTopicModelingService {
         pipeList.add(new CharSequence2TokenSequence(Pattern.compile("\\p{L}[\\p{L}\\p{P}]+\\p{L}")));
         
         // Remove common words that don't help with topic discovery
-        File stopwordsFile = new ClassPathResource("stoplist_en.txt").getFile();
+        File stopwordsFile = getStopwordsFile();
         pipeList.add(new TokenSequenceRemoveStopwords(stopwordsFile, "UTF-8", false, false, false));
         
         pipeList.add(new TokenSequence2FeatureSequence());
@@ -132,7 +159,7 @@ public class MalletTopicModelingService {
         pipeList.add(new CharSequenceLowercase());
         pipeList.add(new CharSequence2TokenSequence(Pattern.compile("\\p{L}[\\p{L}\\p{P}]+\\p{L}")));
         
-        File stopwordsFile = new ClassPathResource("stoplist_en.txt").getFile();
+        File stopwordsFile = getStopwordsFile();
         pipeList.add(new TokenSequenceRemoveStopwords(stopwordsFile, "UTF-8", false, false, false));
         
         pipeList.add(new TokenSequence2FeatureSequence());

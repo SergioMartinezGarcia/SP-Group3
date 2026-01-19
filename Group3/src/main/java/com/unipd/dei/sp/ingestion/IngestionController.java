@@ -129,13 +129,19 @@ public class IngestionController {
                         // Get topic distribution from the trained model
                         Map<Integer, Double> topicDistribution = malletService.getDocumentTopicDistribution(doc);
                         
+                        // Log all topics found in this document
+                        System.out.println("\n  Document " + doc.id() + " topic distribution:");
+                        for (Map.Entry<Integer, Double> entry : topicDistribution.entrySet()) {
+                            System.out.println("    Topic " + entry.getKey() + ": " + String.format("%.2f", entry.getValue()));
+                        }
+                        
                         // Check if document has any target topic
                         boolean hasTargetTopic = false;
                         for (Integer targetTopic : targetTopics) {
                             Double weight = topicDistribution.get(targetTopic);
                             if (weight != null && weight >= TOPIC_WEIGHT_THRESHOLD) {
                                 hasTargetTopic = true;
-                                System.out.println("  Document " + doc.id() + " contains topic " + 
+                                System.out.println("  -> Document " + doc.id() + " MATCHES target topic " + 
                                                  targetTopic + " (weight: " + String.format("%.2f", weight) + ") - KEEPING");
                                 break;
                             }
@@ -147,7 +153,7 @@ public class IngestionController {
                         } else {
                             documentsToDelete.add(doc);
                             topicFilteredCount++;
-                            System.out.println("  Document " + doc.id() + " does not contain target topics - FILTERING OUT");
+                            System.out.println("  -> Document " + doc.id() + " does NOT match any target topics " + targetTopics + " - FILTERING OUT");
                         }
                         
                     } catch (Exception e) {

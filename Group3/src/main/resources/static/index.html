@@ -458,7 +458,17 @@
     </div>
 
     <script>
-        const API_BASE = 'http://localhost:8081/api';
+        // Determine API port based on how the page is accessed
+        function getApiPort() {
+            // If page is served by the backend (has a port in URL), use that port
+            if (window.location.port) {
+                return window.location.port;
+            }
+            // If opened as file, check localStorage for saved preference, or default to 8081
+            return localStorage.getItem('apiPort') || '8081';
+        }
+        
+        const API_BASE = `http://localhost:${getApiPort()}/api`;
         let allDocuments = [];
         let selectedTopicId = null;
         let searchQuery = '';
