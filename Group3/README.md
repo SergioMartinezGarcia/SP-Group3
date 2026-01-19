@@ -30,7 +30,8 @@ The easiest way to run the project is using Docker Compose. This will build the 
 docker-compose up --build
 ```
 
-- **Application URL**: `http://localhost:8082` (mapped from container port 8080)
+- **Application URL (Docker)**: `http://localhost:8082` (mapped from container port 8080)
+- **Local Application URL**: `http://localhost:8081` (when running locally)
 - **MongoDB**: `localhost:27017`
 - **Elasticsearch**: `localhost:9200`
 
@@ -39,7 +40,7 @@ docker-compose up --build
 The application provides a feature-rich Web Dashboard for interacting with the data pipeline.
 
 ### Web Dashboard
-Access the dashboard at `http://localhost:8082`.
+Access the dashboard at `http://localhost:8082` (Docker) or `http://localhost:8081` (Local).
 
 - **Crawl & Train Documents**: Found in the sidebar under **"Crawl & Filter Documents"**.
     - **Search keyword**: Enter a topic, for example  "science" to fetch new articles from The Guardian.
@@ -79,13 +80,28 @@ curl -X DELETE "http://localhost:8082/admin/all"
 
 To run the automated test suite, you need to have Java 17 and Maven installed, or use the provided Maven wrapper:
 
+#### Run All Tests
 ```bash
-./mvnw test
+./mvnw clean test
 ```
-*Note: Some tests use **Testcontainers** and require a running Docker daemon.*
+
+#### Only Unit Tests
+```bash
+./mvnw test -Dtest="*Test"
+```
+
+#### Run Integration Tests
+To run tests that require external resources (MongoDB/Elasticsearch via Testcontainers):
+```bash
+./mvnw test -Dtest="*IntegrationTest"
+```
+
+#### Run Specific Tests
+```bash
+./mvnw test -Dtest=RelevanceFilterServiceTest (Example)
+```
 
 ## 📂 Project Structure
 - `src/main/java`: Backend source code.
 - `compose.yaml`: Docker Compose configuration.
 - `Dockerfile`: Multi-stage build for the Spring Boot app.
-- `SERVICES.md`: Detailed breakdown of service logic.
