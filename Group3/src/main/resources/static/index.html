@@ -443,7 +443,7 @@
                         type="text" 
                         id="searchInput" 
                         class="form-input" 
-                        placeholder="Search documents by title..."
+                        placeholder="Search documents (uses Elasticsearch)..."
                         style="font-size: 1rem; padding: 12px;"
                     >
                 </div>
@@ -469,19 +469,23 @@
         }
         
         const API_BASE = `http://localhost:${getApiPort()}/api`;
-        let allDocuments = [];
         let selectedTopicId = null;
         let searchQuery = '';
+        let searchTimeout = null;
 
         document.addEventListener('DOMContentLoaded', () => {
             loadTopics();
-            loadAllDocuments();
+            performSearch(); // Load initial documents
             
             const searchInput = document.getElementById('searchInput');
+            // Debounce search - wait 500ms after user stops typing
             searchInput.addEventListener('input', (e) => {
-                searchQuery = e.target.value.toLowerCase().trim();
-                displayResults();
-                updateFilterInfo();
+                searchQuery = e.target.value.trim();
+                
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => {
+                    performSearch();
+                }, 500);
             });
         });
 
@@ -517,8 +521,7 @@
             }
             
             loadTopics();
-            displayResults();
-            updateFilterInfo();
+            performSearch(); // Trigger new search with topic filter
         }
 
         function clearFilter() {
@@ -526,13 +529,11 @@
             searchQuery = '';
             document.getElementById('searchInput').value = '';
             loadTopics();
-            displayResults();
-            updateFilterInfo();
+            performSearch(); // Reload all documents
         }
 
-        function updateFilterInfo() {
+        function updateFilterInfo(resultCount) {
             const filterInfoContainer = document.getElementById('filterInfo');
-            const filteredCount = getFilteredDocuments().length;
             const hasFilters = selectedTopicId !== null || searchQuery !== '';
             
             if (hasFilters) {
@@ -548,7 +549,7 @@
                 filterInfoContainer.innerHTML = `
                     <div class="filter-info">
                         <div class="filter-info-text">
-                            ${filterText} (${filteredCount} documents)
+                            ${filterText} (${resultCount} documents)
                         </div>
                         <button class="clear-filter-btn" onclick="clearFilter()">Clear All Filters</button>
                     </div>
@@ -558,59 +559,47 @@
             }
         }
 
-        function getFilteredDocuments() {
-            let filtered = allDocuments;
-            
-            // Apply topic filter
-            if (selectedTopicId !== null) {
-                filtered = filtered.filter(doc => {
-                    return doc.topics && doc.topics[selectedTopicId];
-                });
-            }
-            
-            // Apply search query filter
-            if (searchQuery !== '') {
-                filtered = filtered.filter(doc => {
-                    const title = (doc.title || doc.metadata?.webTitle || doc.id).toLowerCase();
-                    return title.includes(searchQuery);
-                });
-            }
-            
-            return filtered;
-        }
-
-        async function loadAllDocuments() {
+        async function performSearch() {
             const resultsContainer = document.getElementById('resultsContainer');
-            resultsContainer.innerHTML = '<div class="loading">Loading documents...</div>';
+            resultsContainer.innerHTML = '<div class="loading">Searching with Elasticsearch...</div>';
 
             try {
-                const response = await fetch(`${API_BASE}/gateway/search?query=*`);
+                // Build search URL with query and optional topic filter
+                const query = searchQuery || '*';
+                let url = `${API_BASE}/gateway/search?query=${encodeURIComponent(query)}`;
+                
+                if (selectedTopicId !== null) {
+                    url += `&topicFilter=${selectedTopicId}`;
+                }
+
+                console.log('Searching with URL:', url); // Debug log
+
+                const response = await fetch(url);
                 const data = await response.json();
                 
-                allDocuments = data.hits || [];
+                const documents = data.hits || [];
                 
-                displayResults();
-                updateFilterInfo();
+                updateFilterInfo(documents.length);
+                displayResults(documents);
             } catch (error) {
-                console.error('Error loading documents:', error);
+                console.error('Error performing search:', error);
                 resultsContainer.innerHTML = `
                     <div class="empty-state">
-                        <div class="empty-state-icon">Warning</div>
-                        <div class="empty-state-title">Could not load documents</div>
+                        <div class="empty-state-icon">⚠️</div>
+                        <div class="empty-state-title">Could not perform search</div>
                         <div class="empty-state-text">Make sure the server is running and documents are indexed.</div>
                     </div>
                 `;
             }
         }
 
-        function displayResults() {
+        function displayResults(documents) {
             const resultsContainer = document.getElementById('resultsContainer');
-            const documentsToShow = getFilteredDocuments();
             
-            if (allDocuments.length === 0) {
+            if (documents.length === 0 && !searchQuery && selectedTopicId === null) {
                 resultsContainer.innerHTML = `
                     <div class="empty-state">
-                        <div class="empty-state-icon">Search</div>
+                        <div class="empty-state-icon">📄</div>
                         <div class="empty-state-title">No documents yet</div>
                         <div class="empty-state-text">Start by crawling some documents.</div>
                     </div>
@@ -618,10 +607,10 @@
                 return;
             }
 
-            if (documentsToShow.length === 0 && selectedTopicId !== null) {
+            if (documents.length === 0 && selectedTopicId !== null) {
                 resultsContainer.innerHTML = `
                     <div class="empty-state">
-                        <div class="empty-state-icon">Filter</div>
+                        <div class="empty-state-icon">🔍</div>
                         <div class="empty-state-title">No documents match this topic</div>
                         <div class="empty-state-text">Try selecting a different topic or clear the filter.</div>
                     </div>
@@ -629,10 +618,10 @@
                 return;
             }
 
-            if (documentsToShow.length === 0 && searchQuery !== '') {
+            if (documents.length === 0 && searchQuery !== '') {
                 resultsContainer.innerHTML = `
                     <div class="empty-state">
-                        <div class="empty-state-icon">Search</div>
+                        <div class="empty-state-icon">🔍</div>
                         <div class="empty-state-title">No documents match your search</div>
                         <div class="empty-state-text">Try a different search term or clear the filter.</div>
                     </div>
@@ -643,10 +632,10 @@
             resultsContainer.innerHTML = `
                 <div class="results-header">
                     <div class="results-count">
-                        Showing <strong>${documentsToShow.length}</strong> of <strong>${allDocuments.length}</strong> document(s)
+                        Found <strong>${documents.length}</strong> document(s)
                     </div>
                 </div>
-                ${documentsToShow.map(doc => createDocumentCard(doc)).join('')}
+                ${documents.map(doc => createDocumentCard(doc)).join('')}
             `;
         }
 
@@ -713,7 +702,7 @@
                     searchQuery = '';
                     document.getElementById('searchInput').value = '';
                     loadTopics();
-                    setTimeout(() => loadAllDocuments(), 2000);
+                    setTimeout(() => performSearch(), 2000);
                 } else {
                     showMessage('Process failed: ' + responseMessage, 'error');
                 }
@@ -743,9 +732,7 @@
                     searchQuery = '';
                     document.getElementById('searchInput').value = '';
                     loadTopics();
-                    allDocuments = [];
-                    displayResults();
-                    updateFilterInfo();
+                    performSearch();
                 } else {
                     showMessage('Delete failed: ' + message, 'error');
                 }

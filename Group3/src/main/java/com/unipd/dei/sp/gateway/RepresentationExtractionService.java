@@ -23,6 +23,9 @@ public class RepresentationExtractionService {
 
     @Autowired
     private MalletTopicModelingService malletService;
+    
+    @Autowired
+    private ElasticSearchService elasticSearchService;
 
     /*
      * Performs a search and enriches results with topic data.
@@ -37,7 +40,7 @@ public class RepresentationExtractionService {
             documents = documentRepository.findAll();
         } else {
             // Future enhancement: use Elasticsearch for text search
-            documents = documentRepository.findAll();
+        	documents = elasticSearchService.searchByContent(query);
         }
 
         Map<Integer, Topic> topicsMap = malletService.getAllTopics().stream()
